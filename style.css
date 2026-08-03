@@ -1,0 +1,434 @@
+/* Flujo · Beta 1
+   Estilo "ledger editorial": libro contable moderno
+   Paleta: papel crema + tinta + ocre
+   Tipografías: Fraunces (serif), Inter Tight (sans), JetBrains Mono (números) */
+
+:root {
+    --papel: #faf7f2;
+    --papel-tinte: #f3eee5;
+    --tinta: #1a1a1a;
+    --tinta-suave: #5c5c5c;
+    --tinta-tenue: #9a9a9a;
+    --linea: #d8d2c4;
+    --linea-suave: #ece6d8;
+    --ocre: #b8860b;
+    --ocre-tenue: #d4a843;
+    --rojo: #a83232;
+    --verde: #2d5e3e;
+
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter Tight', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* contenedor principal: una sola columna, estrecha, centrada */
+.pagina {
+    flex: 1;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 32px 32px;
+}
+
+/* === cabecera === */
+.cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--tinta);
+    margin-bottom: 32px;
+}
+
+.cabecera-titulo h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 56px;
+    letter-spacing: -2px;
+    line-height: 1;
+    font-variation-settings: 'opsz' 144;
+}
+
+.cabecera-sub {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--tinta-suave);
+    margin-top: 8px;
+    display: block;
+}
+
+.cabecera-mes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+}
+
+.cabecera-mes button {
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--tinta-suave);
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.15s;
+}
+
+.cabecera-mes button:hover {
+    color: var(--ocre);
+}
+
+#mes-actual {
+    min-width: 130px;
+    text-align: center;
+    font-weight: 500;
+    color: var(--tinta);
+    text-transform: capitalize;
+}
+
+/* === balance (totales) === */
+.balance {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: end;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--linea);
+    margin-bottom: 40px;
+}
+
+.balance-item {
+    text-align: left;
+}
+
+.balance-item:last-child {
+    text-align: right;
+}
+
+.balance-item:nth-child(3) {
+    text-align: center;
+}
+
+.balance-etiqueta {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--tinta-tenue);
+    margin-bottom: 6px;
+}
+
+.balance-cantidad {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--tinta);
+    font-variant-numeric: tabular-nums;
+}
+
+.balance-sep {
+    width: 1px;
+    height: 36px;
+    background: var(--linea);
+}
+
+/* === sección entrada (formulario) === */
+.entrada {
+    margin-bottom: 48px;
+}
+
+.entrada-titulo {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--tinta-suave);
+    margin-bottom: 16px;
+}
+
+.entrada-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.campo-ancho {
+    grid-column: 1 / -1;
+}
+
+.campo-etiqueta {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--tinta-tenue);
+}
+
+input,
+select {
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 8px 0;
+    border: none;
+    border-bottom: 1px solid var(--linea);
+    background: transparent;
+    color: var(--tinta);
+    width: 100%;
+    border-radius: 0;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-bottom-color: var(--ocre);
+}
+
+input::placeholder {
+    color: var(--tinta-tenue);
+    font-family: var(--mono);
+}
+
+select {
+    font-family: var(--sans);
+    text-transform: lowercase;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235c5c5c' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+    padding-right: 20px;
+}
+
+/* botón "anotar" */
+.btn-anotar {
+    background: var(--tinta);
+    color: var(--papel);
+    border: none;
+    padding: 10px 28px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: lowercase;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-anotar:hover {
+    background: var(--ocre);
+}
+
+/* === libro (lista de gastos) === */
+.libro {
+    margin-bottom: 32px;
+}
+
+.libro-cabecera {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--tinta-tenue);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--tinta);
+    margin-bottom: 0;
+}
+
+.apuntes {
+    list-style: none;
+}
+
+.apunte {
+    display: grid;
+    grid-template-columns: 32px 56px 1fr auto 24px;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--linea-suave);
+    transition: background 0.1s;
+}
+
+.apunte:hover {
+    background: var(--papel-tinte);
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-left: -8px;
+    margin-right: -8px;
+}
+
+.apunte-numero {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--tinta-tenue);
+    font-variant-numeric: tabular-nums;
+}
+
+.apunte-fecha {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--tinta-suave);
+    text-transform: lowercase;
+}
+
+.apunte-desc {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--tinta);
+}
+
+.apunte-cat {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--tinta-tenue);
+    margin-left: 8px;
+}
+
+.apunte-cat::before {
+    content: '·';
+    margin-right: 4px;
+    color: var(--ocre);
+}
+
+.apunte-cantidad {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--tinta);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.apunte-borrar {
+    background: none;
+    border: none;
+    color: var(--tinta-tenue);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.apunte:hover .apunte-borrar {
+    opacity: 1;
+}
+
+.apunte-borrar:hover {
+    color: var(--rojo);
+}
+
+.vacio {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--tinta-tenue);
+    text-align: center;
+    padding: 48px 0;
+}
+
+/* === pie === */
+.pie {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--tinta-tenue);
+    padding: 24px 32px;
+    border-top: 1px solid var(--linea);
+    max-width: 640px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* === responsivo === */
+@media (max-width: 560px) {
+    .pagina {
+        padding: 32px 20px 24px;
+    }
+
+    .cabecera {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .cabecera-titulo h1 {
+        font-size: 44px;
+    }
+
+    .balance {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .balance-sep {
+        display: none;
+    }
+
+    .balance-item,
+    .balance-item:last-child,
+    .balance-item:nth-child(3) {
+        text-align: left;
+    }
+
+    .entrada-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .apunte {
+        grid-template-columns: 24px 48px 1fr auto;
+        gap: 10px;
+    }
+
+    .apunte-borrar {
+        grid-column: 1 / -1;
+        opacity: 1;
+        text-align: right;
+    }
+
+    .pie {
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+    }
+}

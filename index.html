@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flujo · Beta 1</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="pagina">
+
+        <header class="cabecera">
+            <div class="cabecera-titulo">
+                <h1>Flujo</h1>
+                <span class="cabecera-sub">libro de gastos · vol. 1</span>
+            </div>
+            <nav class="cabecera-mes" aria-label="cambiar mes">
+                <button id="mes-anterior" type="button" aria-label="mes anterior">‹</button>
+                <span id="mes-actual">—</span>
+                <button id="mes-siguiente" type="button" aria-label="mes siguiente">›</button>
+            </nav>
+        </header>
+
+        <section class="balance" aria-label="resumen del mes">
+            <div class="balance-item">
+                <div class="balance-etiqueta">gastado</div>
+                <div class="balance-cantidad" id="total-gastado">0,00 €</div>
+            </div>
+            <div class="balance-sep"></div>
+            <div class="balance-item">
+                <div class="balance-etiqueta">apuntes</div>
+                <div class="balance-cantidad" id="total-numero">0</div>
+            </div>
+            <div class="balance-sep"></div>
+            <div class="balance-item">
+                <div class="balance-etiqueta">media</div>
+                <div class="balance-cantidad" id="total-media">0,00 €</div>
+            </div>
+        </section>
+
+        <section class="entrada" aria-label="añadir gasto">
+            <div class="entrada-titulo">nuevo apunte</div>
+            <form id="form-gasto">
+                <div class="entrada-grid">
+                    <label class="campo">
+                        <span class="campo-etiqueta">importe</span>
+                        <input type="number" id="input-cantidad" step="0.01" min="0" placeholder="0,00" required>
+                    </label>
+                    <label class="campo">
+                        <span class="campo-etiqueta">categoría</span>
+                        <select id="input-categoria">
+                            <option value="comida">comida</option>
+                            <option value="transporte">transporte</option>
+                            <option value="ocio">ocio</option>
+                            <option value="casa">casa</option>
+                            <option value="estudios">estudios</option>
+                            <option value="ropa">ropa</option>
+                            <option value="salud">salud</option>
+                            <option value="otros">otros</option>
+                        </select>
+                    </label>
+                    <label class="campo campo-ancho">
+                        <span class="campo-etiqueta">descripción</span>
+                        <input type="text" id="input-desc" placeholder="mercadona, metro, café…">
+                    </label>
+                    <label class="campo">
+                        <span class="campo-etiqueta">fecha</span>
+                        <input type="date" id="input-fecha" required>
+                    </label>
+                </div>
+                <button type="submit" class="btn-anotar">anotar</button>
+            </form>
+        </section>
+
+        <section class="libro" aria-label="lista de gastos">
+            <div class="libro-cabecera">
+                <span>libro mayor</span>
+                <span class="libro-cabecera-der" id="libro-pagina">p. 1</span>
+            </div>
+            <ol id="lista-gastos" class="apuntes"></ol>
+            <p id="vacio" class="vacio">sin apuntes este mes.</p>
+        </section>
+
+    </div>
+
+    <footer class="pie">
+        <span>flujo · beta 1</span>
+        <span>datos locales · sin servidor</span>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
