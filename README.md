@@ -65,7 +65,7 @@ Just open `index.html` in any browser. No install, no config.
 ## Roadmap
 
 - [x] **Beta 1** — basic expense tracking with month selector
-- [ ] **Beta 2** — Sankey diagram of money flow + bar charts
+- [x] **Beta 2** — Sankey diagram of money flow + bar charts
 - [ ] **Beta 3** — OCR ticket scanner (offline, Tesseract.js)
 - [ ] **Beta 4** — debt ledger + shared expenses + pattern detection
 - [ ] **Beta 5** — FastAPI + SQLite backend for sync + PWA installable
