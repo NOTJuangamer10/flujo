@@ -1047,3 +1047,726 @@ dibujarBarras = function () {
 
 // redibujar todo con las funciones nuevas
 dibujarTodo();
+
+
+
+// === BETA 3: tabs + Sankey proporcional + OCR tickets ===
+// 1. tabs: resumen / apuntes / tickets
+// 2. Sankey proporcional (nodos escalan al total global, no a su suma)
+// 3. OCR de tickets con Tesseract.js (offline desde CDN)
+
+
+// --- 1. FIX SANKEY PROPORCIONAL ---
+// redefino dibujarSankey con minH=3 y usando el total global como escala
+dibujarSankey = function () {
+    var p = prepareCanvas(canvasSankey);
+    var ctx = p.ctx, w = p.w, h = p.h;
+    ctx.clearRect(0, 0, w, h);
+
+    var ingresos = cargarIngresos();
+    var gastosMes = gastosDelMes();
+    var porCat = {};
+    gastosMes.forEach(function (g) {
+        if (!porCat[g.categoria]) porCat[g.categoria] = 0;
+        porCat[g.categoria] += g.cantidad;
+    });
+    var totalG = gastosMes.reduce(function (s, g) { return s + g.cantidad; }, 0);
+    var totalI = ingresos.reduce(function (s, i) { return s + i.cantidad; }, 0);
+
+    if (totalG === 0 && totalI === 0) {
+        ctx.fillStyle = '#9a9a9a';
+        ctx.font = 'italic 16px Fraunces, Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('sin datos para mostrar', w / 2, h / 2);
+        return;
+    }
+
+    var total = Math.max(totalI, totalG, 1);
+
+    var nodeW = 100, nodeR = 4, gap = 5;
+    var pad = 10, mTop = 10, mBot = 10;
+    var areaH = h - mTop - mBot;
+    var xL = pad;
+    var xC = (w - nodeW) / 2;
+    var xR = w - nodeW - pad;
+
+    var left = ingresos.map(function (i) {
+        return { label: i.fuente, value: i.cantidad };
+    });
+    if (left.length === 0 && totalG > 0) {
+        left = [{ label: 'gastos', value: totalG }];
+    }
+
+    var right = Object.keys(porCat).map(function (cat) {
+        return { label: cat, value: porCat[cat], cat: cat };
+    });
+    if (right.length === 0) {
+        right = [{ label: 'sin gastos', value: 0, cat: 'otros' }];
+    }
+
+    // CAMBIO: minH muy pequeño para que los nodos sean proporcionales
+    var minH = 3;
+
+    // CAMBIO: ambos lados usan el total global como escala
+    function layoutCol(nodes) {
+        var totalH = 0;
+        nodes.forEach(function (n) {
+            n.h = Math.max(minH, (n.value / total) * areaH);
+            totalH += n.h;
+        });
+        if (totalH > areaH) {
+            var sc = (areaH - gap * (nodes.length - 1)) / totalH;
+            nodes.forEach(function (n) { n.h = Math.max(minH, n.h * sc); });
+            totalH = nodes.reduce(function (s, n) { return s + n.h; }, 0);
+        }
+        var y = mTop + (areaH - totalH - gap * (nodes.length - 1)) / 2;
+        nodes.forEach(function (n) { n.y = y; y += n.h + gap; });
+    }
+    layoutCol(left);
+    layoutCol(right);
+    var cenH = areaH, cenY = mTop;
+
+    function rrect(x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+    }
+
+    function flow(x0, y0, h0, x1, y1, h1, col) {
+        if (h0 < 1 && h1 < 1) return;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        var cp = Math.abs(x1 - x0) * 0.42;
+        ctx.moveTo(x0, y0);
+        ctx.bezierCurveTo(x0 + cp, y0, x1 - cp, y1, x1, y1);
+        ctx.lineTo(x1, y1 + h1);
+        ctx.bezierCurveTo(x1 - cp, y1 + h1, x0 + cp, y0 + h0, x0, y0 + h0);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function nodeBox(n, x, bg, accent) {
+        if (n.h < 1) return;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = bg;
+        rrect(x, n.y, nodeW, n.h, nodeR);
+        ctx.fill();
+        ctx.restore();
+        if (accent && n.h > 5) {
+            ctx.save();
+            rrect(x, n.y, nodeW, n.h, nodeR);
+            ctx.clip();
+            ctx.fillStyle = accent;
+            ctx.fillRect(x, n.y, 5, n.h);
+            ctx.restore();
+        }
+    }
+
+    function nodeText(n, x, accent, light) {
+        if (n.h < 10) return;
+        var txCol = light ? '#fff' : '#1a1a1a';
+        var subCol = light ? 'rgba(255,255,255,0.7)' : '#5c5c5c';
+        var tx = accent ? x + 14 : x + 10;
+        var mw = nodeW - (accent ? 24 : 20);
+        ctx.fillStyle = txCol;
+        ctx.font = '600 11px "Inter Tight", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tx, n.y, mw, n.h);
+        ctx.clip();
+        ctx.fillText(n.label, tx, n.y + n.h / 2 - 2);
+        ctx.restore();
+        if (n.h < 20) return;
+        var pct = ((n.value / total) * 100).toFixed(1) + '%';
+        ctx.fillStyle = subCol;
+        ctx.font = '400 9px "JetBrains Mono", monospace';
+        ctx.fillText(formatearEuros(n.value) + ' (' + pct + ')', tx, n.y + n.h / 2 + 11);
+    }
+
+    var leftH = left.reduce(function (s, n) { return s + n.h; }, 0);
+    left.forEach(function (n) {
+        if (n.h < 2) return;
+        var yDst = cenY + ((n.y - left[0].y) / leftH) * cenH;
+        var hDst = (n.h / leftH) * cenH;
+        flow(xL + nodeW, n.y, n.h, xC, yDst, hDst, 'rgba(45,94,62,0.25)');
+    });
+
+    var rightH = right.reduce(function (s, n) { return s + n.h; }, 0);
+    right.forEach(function (n) {
+        if (n.h < 2) return;
+        var ySrc = cenY + ((n.y - right[0].y) / rightH) * cenH;
+        var hSrc = (n.h / rightH) * cenH;
+        var col = COLORES_CAT[n.cat] || '#7a7a6a';
+        flow(xC + nodeW, ySrc, hSrc, xR, n.y, n.h, hexToRgba(col, 0.3));
+    });
+
+    left.forEach(function (n) {
+        nodeBox(n, xL, '#2d5e3e', null);
+        nodeText(n, xL, null, true);
+    });
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.1)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#1a1a1a';
+    rrect(xC, cenY, nodeW, cenH, nodeR);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 12px "Inter Tight", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('total', xC + nodeW / 2, cenY + cenH / 2 - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '400 10px "JetBrains Mono", monospace';
+    ctx.fillText(formatearEuros(total), xC + nodeW / 2, cenY + cenH / 2 + 8);
+
+    right.forEach(function (n) {
+        var accent = COLORES_CAT[n.cat] || '#7a7a6a';
+        nodeBox(n, xR, '#f3eee5', accent);
+        nodeText(n, xR, accent, false);
+    });
+};
+
+
+// --- 2. SISTEMA DE TABS ---
+// creo el contenedor de tabs y lo meto despues del balance
+var tabsWrap = document.createElement('div');
+tabsWrap.className = 'tabs';
+tabsWrap.innerHTML =
+    '<div class="tab-nav">' +
+    '<button class="tab-btn active" data-tab="resumen">resumen</button>' +
+    '<button class="tab-btn" data-tab="apuntes">apuntes</button>' +
+    '<button class="tab-btn" data-tab="tickets">tickets</button>' +
+    '</div>' +
+    '<div class="tab-content" id="tab-resumen"></div>' +
+    '<div class="tab-content" id="tab-apuntes"></div>' +
+    '<div class="tab-content" id="tab-tickets"></div>';
+balanceSeccion.parentNode.insertBefore(tabsWrap, balanceSeccion.nextSibling);
+
+// muevo las secciones existentes dentro de las tabs
+document.getElementById('tab-resumen').appendChild(seccionIngresos);
+document.getElementById('tab-resumen').appendChild(seccionGraficos);
+document.getElementById('tab-apuntes').appendChild(document.querySelector('.entrada'));
+document.getElementById('tab-apuntes').appendChild(document.querySelector('.libro'));
+
+// logica de cambio de tab
+document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        var tabId = 'tab-' + btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-content').forEach(function (c) {
+            c.style.display = 'none';
+        });
+        document.getElementById(tabId).style.display = 'block';
+        // redibujar graficos al volver al resumen
+        if (btn.getAttribute('data-tab') === 'resumen') {
+            dibujarTodo();
+        }
+    });
+});
+
+// ocultar las tabs de apuntes y tickets al inicio
+document.getElementById('tab-apuntes').style.display = 'none';
+document.getElementById('tab-tickets').style.display = 'none';
+
+
+// --- 3. OCR DE TICKETS CON TESSERACT.JS ---
+// cargo Tesseract desde CDN la primera vez que se usa
+var tesseractCargado = false;
+
+function cargarTesseract(callback) {
+    if (tesseractCargado) {
+        callback();
+        return;
+    }
+    var script = document.createElement('script');
+    script.src = 'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = function () {
+        tesseractCargado = true;
+        callback();
+    };
+    script.onerror = function () {
+        mostrarResultadoTicket('<p class="ticket-error">no se pudo cargar el OCR. revisa tu conexion.</p>');
+    };
+    document.head.appendChild(script);
+}
+
+// creo la seccion de tickets dentro de su tab
+var tabTickets = document.getElementById('tab-tickets');
+tabTickets.innerHTML =
+    '<div class="tickets-titulo">escanear ticket</div>' +
+    '<p class="tickets-desc">sube una foto de un ticket de compra y la app intentara extraer los productos y precios automaticamente.</p>' +
+    '<div class="ticket-upload">' +
+    '<input type="file" id="ticket-file" accept="image/*" capture="environment">' +
+    '<button id="btn-escanear" type="button" disabled>escanear</button>' +
+    '</div>' +
+    '<div id="ticket-progreso" class="ticket-progreso"></div>' +
+    '<div id="ticket-resultados" class="ticket-resultados"></div>';
+
+var ticketFile = document.getElementById('ticket-file');
+var btnEscanear = document.getElementById('btn-escanear');
+var ticketProgreso = document.getElementById('ticket-progreso');
+var ticketResultados = document.getElementById('ticket-resultados');
+
+// habilitar el boton cuando se selecciona un archivo
+ticketFile.addEventListener('change', function () {
+    btnEscanear.disabled = !ticketFile.files[0];
+});
+
+// escanear al pulsar el boton
+btnEscanear.addEventListener('click', function () {
+    var file = ticketFile.files[0];
+    if (!file) return;
+
+    ticketResultados.innerHTML = '';
+    ticketProgreso.innerHTML = 'cargando motor OCR...';
+
+    cargarTesseract(function () {
+        ticketProgreso.innerHTML = 'procesando imagen...';
+
+        tesseractCargado.createWorker('spa', 1, {
+            logger: function (m) {
+                if (m.status === 'recognizing text') {
+                    ticketProgreso.innerHTML = 'reconociendo texto... ' + Math.round(m.progress * 100) + '%';
+                }
+            }
+        }).then(function (worker) {
+            worker.recognize(file).then(function (ret) {
+                worker.terminate();
+                ticketProgreso.innerHTML = '';
+                mostrarTicketParseado(ret.data.text);
+            }).catch(function (err) {
+                worker.terminate();
+                ticketProgreso.innerHTML = '';
+                mostrarResultadoTicket('<p class="ticket-error">error al procesar la imagen.</p>');
+            });
+        });
+    });
+});
+
+// parsear el texto del OCR y extraer productos y precios
+function mostrarTicketParseado(texto) {
+    var lineas = texto.split('\n');
+    var items = [];
+    var totalDetectado = null;
+
+    lineas.forEach(function (linea) {
+        linea = linea.trim();
+        if (!linea) return;
+
+        // buscar el total
+        if (/total/i.test(linea)) {
+            var matchTotal = linea.match(/(\d+[,.]\d{2})/);
+            if (matchTotal) {
+                totalDetectado = parseFloat(matchTotal[1].replace(',', '.'));
+            }
+        }
+
+        // buscar lineas con producto + precio al final
+        // patron: texto seguido de numero con decimal
+        var match = linea.match(/^(.+?)\s+(\d+[,.]\d{2})\s*€?\s*$/);
+        if (match && !/total|subtotal|cambio|efectivo|tarjeta|iva|base/i.test(match[1])) {
+            var precio = parseFloat(match[2].replace(',', '.'));
+            if (precio > 0 && precio < 1000) {
+                items.push({
+                    nombre: match[1].trim().toLowerCase(),
+                    precio: precio
+                });
+            }
+        }
+    });
+
+    if (items.length === 0) {
+        mostrarResultadoTicket(
+            '<p class="ticket-error">no se detectaron productos. prueba con otra foto o mas nitida.</p>' +
+            '<details class="ticket-raw"><summary>ver texto detectado</summary><pre>' + escaparHTML(texto) + '</pre></details>'
+        );
+        return;
+    }
+
+    // pintar los items detectados
+    var html = '<div class="ticket-lista-titulo">productos detectados (' + items.length + ')</div>';
+    html += '<ul class="ticket-lista">';
+    items.forEach(function (item, i) {
+        html += '<li class="ticket-item">' +
+            '<input type="checkbox" checked data-idx="' + i + '">' +
+            '<span class="ticket-item-nombre">' + escaparHTML(item.nombre) + '</span>' +
+            '<span class="ticket-item-precio">' + formatearEuros(item.precio) + '</span>' +
+            '</li>';
+    });
+    html += '</ul>';
+
+    var totalItems = items.reduce(function (s, it) { return s + it.precio; }, 0);
+    html += '<div class="ticket-total-items">suma: ' + formatearEuros(totalItems) + '</div>';
+    if (totalDetectado) {
+        html += '<div class="ticket-total-oficial">total del ticket: ' + formatearEuros(totalDetectado) + '</div>';
+    }
+
+    html += '<div class="ticket-acciones">';
+    html += '<label class="ticket-cat-label">categoria: ';
+    html += '<select id="ticket-categoria">';
+    html += '<option value="comida">comida</option>';
+    html += '<option value="transporte">transporte</option>';
+    html += '<option value="ocio">ocio</option>';
+    html += '<option value="casa">casa</option>';
+    html += '<option value="estudios">estudios</option>';
+    html += '<option value="ropa">ropa</option>';
+    html += '<option value="salud">salud</option>';
+    html += '<option value="otros">otros</option>';
+    html += '</select></label>';
+    html += '<button id="btn-guardar-ticket" type="button">guardar como gastos</button>';
+    html += '</div>';
+
+    mostrarResultadoTicket(html);
+
+    // boton guardar
+    document.getElementById('btn-guardar-ticket').addEventListener('click', function () {
+        var cat = document.getElementById('ticket-categoria').value;
+        var hoy = new Date().toISOString().slice(0, 10);
+        var gastos = cargarGastos();
+        var checkboxes = document.querySelectorAll('.ticket-item input[type=checkbox]');
+        var guardados = 0;
+
+        checkboxes.forEach(function (cb, i) {
+            if (cb.checked) {
+                gastos.push({
+                    id: Date.now() + i,
+                    cantidad: items[i].precio,
+                    categoria: cat,
+                    descripcion: items[i].nombre,
+                    fecha: hoy
+                });
+                guardados++;
+            }
+        });
+
+        guardarGastos(gastos);
+        mostrarGastos();
+        actualizarBalance();
+        dibujarTodo();
+
+        mostrarResultadoTicket('<p class="ticket-ok">' + guardados + ' gasto(s) guardado(s).</p>');
+        ticketFile.value = '';
+        btnEscanear.disabled = true;
+    });
+}
+
+function mostrarResultadoTicket(html) {
+    ticketResultados.innerHTML = html;
+}
+
+function escaparHTML(texto) {
+    return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+
+// redibujar al cargar
+dibujarTodo();
+
+
+
+// === BETA 3.1: fix OCR colgado + fix letras borrosas ===
+// 1. fix bug: tesseractCargado.createWorker -> Tesseract.createWorker
+//    (tesseractCargado es un boolean, no la libreria)
+// 2. fix letras borrosas: esperar a que las fuentes carguen antes de dibujar
+//    y redondear las coordenadas Y de los textos a enteros
+// 3. añadir timeout de 90s al OCR para que no se quede colgado nunca
+
+
+// --- 1. FIX OCR: redefino la funcion de escanear ---
+btnEscanear.addEventListener('click', function () {
+    var file = ticketFile.files[0];
+    if (!file) return;
+
+    ticketResultados.innerHTML = '';
+    ticketProgreso.innerHTML = 'cargando motor OCR...';
+    btnEscanear.disabled = true;
+
+    cargarTesseract(function () {
+        if (typeof Tesseract === 'undefined') {
+            ticketProgreso.innerHTML = '';
+            btnEscanear.disabled = false;
+            mostrarResultadoTicket('<p class="ticket-error">la libreria OCR no se cargo. recarga e intentalo de nuevo.</p>');
+            return;
+        }
+
+        ticketProgreso.innerHTML = 'inicializando motor (puede tardar 10-20s la primera vez)...';
+
+        var timeoutId = setTimeout(function () {
+            ticketProgreso.innerHTML = '';
+            btnEscanear.disabled = false;
+            mostrarResultadoTicket('<p class="ticket-error">el OCR tardo demasiado. prueba con una foto mas pequeña o menos nitida.</p>');
+        }, 90000);
+
+        try {
+            Tesseract.createWorker('spa', 1, {
+                logger: function (m) {
+                    if (m.status === 'recognizing text') {
+                        clearTimeout(timeoutId);
+                        ticketProgreso.innerHTML = 'reconociendo texto... ' + Math.round(m.progress * 100) + '%';
+                    } else if (m.status) {
+                        ticketProgreso.innerHTML = m.status + '...';
+                    }
+                }
+            }).then(function (worker) {
+                return worker.recognize(file).then(function (ret) {
+                    return worker.terminate().then(function () {
+                        clearTimeout(timeoutId);
+                        ticketProgreso.innerHTML = '';
+                        btnEscanear.disabled = false;
+                        mostrarTicketParseado(ret.data.text);
+                    });
+                }).catch(function (err) {
+                    return worker.terminate().then(function () {
+                        clearTimeout(timeoutId);
+                        ticketProgreso.innerHTML = '';
+                        btnEscanear.disabled = false;
+                        mostrarResultadoTicket('<p class="ticket-error">error al reconocer el texto: ' + escaparHTML(err.message || String(err)) + '</p>');
+                    });
+                });
+            }).catch(function (err) {
+                clearTimeout(timeoutId);
+                ticketProgreso.innerHTML = '';
+                btnEscanear.disabled = false;
+                mostrarResultadoTicket('<p class="ticket-error">no se pudo iniciar el motor OCR: ' + escaparHTML(err.message || String(err)) + '</p>');
+            });
+        } catch (err) {
+            clearTimeout(timeoutId);
+            ticketProgreso.innerHTML = '';
+            btnEscanear.disabled = false;
+            mostrarResultadoTicket('<p class="ticket-error">error inesperado: ' + escaparHTML(err.message || String(err)) + '</p>');
+        }
+    });
+});
+
+
+// --- 2. FIX LETRAS BORROSAS ---
+// redefino dibujarSankey para redondear las Y de los textos
+// y usar las coordenadas que prepareCanvas ya escala correctamente
+dibujarSankey = function () {
+    var p = prepareCanvas(canvasSankey);
+    var ctx = p.ctx, w = p.w, h = p.h;
+    ctx.clearRect(0, 0, w, h);
+
+    var ingresos = cargarIngresos();
+    var gastosMes = gastosDelMes();
+    var porCat = {};
+    gastosMes.forEach(function (g) {
+        if (!porCat[g.categoria]) porCat[g.categoria] = 0;
+        porCat[g.categoria] += g.cantidad;
+    });
+    var totalG = gastosMes.reduce(function (s, g) { return s + g.cantidad; }, 0);
+    var totalI = ingresos.reduce(function (s, i) { return s + i.cantidad; }, 0);
+
+    if (totalG === 0 && totalI === 0) {
+        ctx.fillStyle = '#9a9a9a';
+        ctx.font = 'italic 16px Fraunces, Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('sin datos para mostrar', w / 2, h / 2);
+        return;
+    }
+
+    var total = Math.max(totalI, totalG, 1);
+
+    var nodeW = 100, nodeR = 4, gap = 5;
+    var pad = 10, mTop = 10, mBot = 10;
+    var areaH = h - mTop - mBot;
+    var xL = pad;
+    var xC = (w - nodeW) / 2;
+    var xR = w - nodeW - pad;
+
+    var left = ingresos.map(function (i) {
+        return { label: i.fuente, value: i.cantidad };
+    });
+    if (left.length === 0 && totalG > 0) {
+        left = [{ label: 'gastos', value: totalG }];
+    }
+
+    var right = Object.keys(porCat).map(function (cat) {
+        return { label: cat, value: porCat[cat], cat: cat };
+    });
+    if (right.length === 0) {
+        right = [{ label: 'sin gastos', value: 0, cat: 'otros' }];
+    }
+
+    var minH = 3;
+
+    function layoutCol(nodes) {
+        var totalH = 0;
+        nodes.forEach(function (n) {
+            n.h = Math.max(minH, (n.value / total) * areaH);
+            totalH += n.h;
+        });
+        if (totalH > areaH) {
+            var sc = (areaH - gap * (nodes.length - 1)) / totalH;
+            nodes.forEach(function (n) { n.h = Math.max(minH, n.h * sc); });
+            totalH = nodes.reduce(function (s, n) { return s + n.h; }, 0);
+        }
+        var y = mTop + (areaH - totalH - gap * (nodes.length - 1)) / 2;
+        nodes.forEach(function (n) {
+            n.y = Math.round(y);
+            y += n.h + gap;
+        });
+    }
+    layoutCol(left);
+    layoutCol(right);
+    var cenH = areaH, cenY = Math.round(mTop);
+
+    function rrect(x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+    }
+
+    function flow(x0, y0, h0, x1, y1, h1, col) {
+        if (h0 < 1 && h1 < 1) return;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        var cp = Math.abs(x1 - x0) * 0.42;
+        ctx.moveTo(x0, y0);
+        ctx.bezierCurveTo(x0 + cp, y0, x1 - cp, y1, x1, y1);
+        ctx.lineTo(x1, y1 + h1);
+        ctx.bezierCurveTo(x1 - cp, y1 + h1, x0 + cp, y0 + h0, x0, y0 + h0);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function nodeBox(n, x, bg, accent) {
+        if (n.h < 1) return;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = bg;
+        rrect(x, n.y, nodeW, Math.round(n.h), nodeR);
+        ctx.fill();
+        ctx.restore();
+        if (accent && n.h > 5) {
+            ctx.save();
+            rrect(x, n.y, nodeW, Math.round(n.h), nodeR);
+            ctx.clip();
+            ctx.fillStyle = accent;
+            ctx.fillRect(x, n.y, 5, Math.round(n.h));
+            ctx.restore();
+        }
+    }
+
+    function nodeText(n, x, accent, light) {
+        if (n.h < 10) return;
+        var txCol = light ? '#fff' : '#1a1a1a';
+        var subCol = light ? 'rgba(255,255,255,0.7)' : '#5c5c5c';
+        var tx = accent ? x + 14 : x + 10;
+        var mw = nodeW - (accent ? 24 : 20);
+        ctx.fillStyle = txCol;
+        ctx.font = '600 11px "Inter Tight", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        var cy = Math.round(n.y + n.h / 2);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tx, n.y, mw, n.h);
+        ctx.clip();
+        ctx.fillText(n.label, tx, cy - 5);
+        ctx.restore();
+        if (n.h < 20) return;
+        var pct = ((n.value / total) * 100).toFixed(1) + '%';
+        ctx.fillStyle = subCol;
+        ctx.font = '400 9px "JetBrains Mono", monospace';
+        ctx.fillText(formatearEuros(n.value) + ' (' + pct + ')', tx, cy + 8);
+    }
+
+    var leftH = left.reduce(function (s, n) { return s + n.h; }, 0);
+    left.forEach(function (n) {
+        if (n.h < 2) return;
+        var yDst = cenY + ((n.y - left[0].y) / leftH) * cenH;
+        var hDst = (n.h / leftH) * cenH;
+        flow(xL + nodeW, n.y, n.h, xC, yDst, hDst, 'rgba(45,94,62,0.25)');
+    });
+
+    var rightH = right.reduce(function (s, n) { return s + n.h; }, 0);
+    right.forEach(function (n) {
+        if (n.h < 2) return;
+        var ySrc = cenY + ((n.y - right[0].y) / rightH) * cenH;
+        var hSrc = (n.h / rightH) * cenH;
+        var col = COLORES_CAT[n.cat] || '#7a7a6a';
+        flow(xC + nodeW, ySrc, hSrc, xR, n.y, n.h, hexToRgba(col, 0.3));
+    });
+
+    left.forEach(function (n) {
+        nodeBox(n, xL, '#2d5e3e', null);
+        nodeText(n, xL, null, true);
+    });
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.1)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#1a1a1a';
+    rrect(xC, cenY, nodeW, Math.round(cenH), nodeR);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 12px "Inter Tight", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('total', xC + nodeW / 2, cenY + cenH / 2 - 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '400 10px "JetBrains Mono", monospace';
+    ctx.fillText(formatearEuros(total), xC + nodeW / 2, cenY + cenH / 2 + 8);
+
+    right.forEach(function (n) {
+        var accent = COLORES_CAT[n.cat] || '#7a7a6a';
+        nodeBox(n, xR, '#f3eee5', accent);
+        nodeText(n, xR, accent, false);
+    });
+};
+
+
+// --- 3. ESPERAR A QUE LAS FUENTES CARGUEN ANTES DEL PRIMER DIBUJO ---
+// esto arregla el texto borroso en el primer render
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+        dibujarTodo();
+    });
+} else {
+    // fallback para navegadores viejos
+    setTimeout(dibujarTodo, 500);
+}
+
+// redibujar al cambiar tamaño de ventana (para que el DPR se recalcule)
+var resizeTimer;
+window.addEventListener('resize', function () {
+    this.clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+        dibujarTodo();
+    }, 250);
+});
+
+// dibujo inicial
+dibujarTodo();

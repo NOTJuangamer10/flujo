@@ -710,3 +710,283 @@ select {
         height: 300px !important;
     }
 }
+
+
+/* === BETA 3: tabs + tickets === */
+
+.tabs {
+    margin-bottom: 32px;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--tinta);
+    margin-bottom: 28px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: lowercase;
+    color: var(--tinta-tenue);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+    color: var(--tinta);
+}
+
+.tab-btn.active {
+    color: var(--tinta);
+    border-bottom-color: var(--ocre);
+}
+
+
+/* --- tickets --- */
+.tickets-titulo {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--tinta-suave);
+    margin-bottom: 8px;
+}
+
+.tickets-desc {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--tinta-tenue);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.ticket-upload {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.ticket-upload input[type=file] {
+    font-family: var(--sans);
+    font-size: 13px;
+    flex: 1;
+    border-bottom: 1px solid var(--linea);
+    padding: 8px 0;
+}
+
+.ticket-upload button {
+    background: var(--tinta);
+    color: var(--papel);
+    border: none;
+    padding: 9px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: lowercase;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.ticket-upload button:hover:not(:disabled) {
+    background: var(--ocre);
+}
+
+.ticket-upload button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ticket-progreso {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--tinta-tenue);
+    margin-bottom: 16px;
+    min-height: 16px;
+}
+
+.ticket-resultados {
+    margin-top: 16px;
+}
+
+.ticket-lista-titulo {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--tinta-tenue);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--tinta);
+}
+
+.ticket-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px 0;
+}
+
+.ticket-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--linea-suave);
+}
+
+.ticket-item input[type=checkbox] {
+    accent-color: var(--ocre);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.ticket-item-nombre {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--tinta);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ticket-item-precio {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tinta);
+    font-variant-numeric: tabular-nums;
+}
+
+.ticket-total-items {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tinta);
+    text-align: right;
+    margin-bottom: 4px;
+}
+
+.ticket-total-oficial {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--tinta-tenue);
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.ticket-acciones {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--linea);
+}
+
+.ticket-cat-label {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--tinta-suave);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ticket-cat-label select {
+    font-family: var(--sans);
+    font-size: 13px;
+    text-transform: lowercase;
+    border: 1px solid var(--linea);
+    border-radius: 4px;
+    padding: 6px 10px;
+    background: white;
+    cursor: pointer;
+}
+
+#btn-guardar-ticket {
+    background: var(--verde);
+    color: var(--papel);
+    border: none;
+    padding: 9px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: lowercase;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#btn-guardar-ticket:hover {
+    background: #1e3a2e;
+}
+
+.ticket-error {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--rojo);
+    padding: 16px 0;
+}
+
+.ticket-ok {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--verde);
+    padding: 16px 0;
+}
+
+.ticket-raw {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+}
+
+.ticket-raw summary {
+    cursor: pointer;
+    color: var(--tinta-tenue);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+}
+
+.ticket-raw pre {
+    background: var(--papel-tinte);
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-top: 8px;
+    white-space: pre-wrap;
+    font-size: 11px;
+    color: var(--tinta-suave);
+}
+
+@media (max-width: 560px) {
+    .ticket-upload {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ticket-acciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #btn-guardar-ticket {
+        align-self: flex-start;
+    }
+}
+
+
+/* === BETA 3.1: sin cambios de CSS, solo JS === */
+/* el parche de CSS va vacio porque los fixes son solo de JS */
