@@ -990,3 +990,396 @@ select {
 
 /* === BETA 3.1: sin cambios de CSS, solo JS === */
 /* el parche de CSS va vacio porque los fixes son solo de JS */
+
+
+/* === BETA 4: deudas + tema oscuro + ajustes === */
+
+/* --- tema oscuro --- */
+body.tema-oscuro {
+    --papel: #1a1814;
+    --papel-tinte: #25221c;
+    --tinta: #e8e4dc;
+    --tinta-suave: #a8a29e;
+    --tinta-tenue: #6b6760;
+    --linea: #3a3630;
+    --linea-suave: #2a2620;
+    background: var(--papel);
+    color: var(--tinta);
+}
+
+body.tema-oscuro input,
+body.tema-oscuro select {
+    color: var(--tinta);
+}
+
+body.tema-oscuro input::placeholder {
+    color: var(--tinta-tenue);
+}
+
+
+/* --- boton ajustes --- */
+.btn-ajustes {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    background: var(--papel-tinte);
+    border: 1px solid var(--linea);
+    color: var(--tinta-suave);
+    padding: 6px 14px;
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.btn-ajustes:hover {
+    border-color: var(--ocre);
+    color: var(--tinta);
+}
+
+#panel-ajustes {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    background: var(--papel);
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    padding: 16px;
+    z-index: 1000;
+    min-width: 240px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.ajustes-fila {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.ajustes-fila:not(:last-child) {
+    border-bottom: 1px solid var(--linea-suave);
+}
+
+.ajustes-fila>span {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--tinta-suave);
+}
+
+.ajustes-toggle {
+    display: flex;
+    background: var(--papel-tinte);
+    border-radius: 4px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.ajustes-toggle button {
+    background: none;
+    border: none;
+    color: var(--tinta-tenue);
+    padding: 4px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+.ajustes-toggle button.active {
+    background: var(--tinta);
+    color: var(--papel);
+}
+
+.ajustes-toggle button:hover:not(.active) {
+    color: var(--tinta);
+}
+
+
+/* --- deudas grid --- */
+.deudas-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.deudas-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.deudas-titulo {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--tinta-suave);
+    margin-bottom: 8px;
+}
+
+.deudas-desc {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--tinta-tenue);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.form-persona {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.form-persona input {
+    flex: 1;
+}
+
+.form-persona button {
+    background: var(--tinta);
+    color: var(--papel);
+    border: none;
+    padding: 8px 16px;
+    font-family: var(--sans);
+    font-size: 12px;
+    text-transform: lowercase;
+    cursor: pointer;
+}
+
+.lista-personas {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.persona-item {
+    display: grid;
+    grid-template-columns: 1fr auto 24px;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--linea-suave);
+}
+
+.persona-nombre {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--tinta);
+}
+
+.persona-balance {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.persona-balance.positivo {
+    color: var(--verde);
+}
+
+.persona-balance.negativo {
+    color: var(--rojo);
+}
+
+.persona-balance.cero {
+    color: var(--tinta-tenue);
+}
+
+.persona-borrar {
+    background: none;
+    border: none;
+    color: var(--tinta-tenue);
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.persona-item:hover .persona-borrar {
+    opacity: 1;
+}
+
+.persona-borrar:hover {
+    color: var(--rojo);
+}
+
+
+/* --- form compartido --- */
+.form-compartido {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-compartido label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--tinta-tenue);
+}
+
+.form-compartido input,
+.form-compartido select {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--linea);
+    border-radius: 4px;
+    background: var(--papel);
+    color: var(--tinta);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.form-compartido input:focus,
+.form-compartido select:focus {
+    outline: none;
+    border-color: var(--ocre);
+}
+
+.checkbox-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.check-participante {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sans);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--tinta);
+    cursor: pointer;
+}
+
+.check-participante input {
+    accent-color: var(--ocre);
+    width: 14px;
+    height: 14px;
+}
+
+#comp-metodo-extra {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.metodo-desc {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--tinta-tenue);
+    font-style: italic;
+    margin-bottom: 4px;
+}
+
+.metodo-fila {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--sans);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--tinta);
+}
+
+.metodo-fila input {
+    width: 80px;
+}
+
+.form-compartido button[type=submit] {
+    background: var(--verde);
+    color: var(--papel);
+    border: none;
+    padding: 9px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: lowercase;
+    cursor: pointer;
+    align-self: flex-start;
+    margin-top: 4px;
+}
+
+
+/* --- movimientos --- */
+.deudas-section {
+    margin-bottom: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--linea);
+}
+
+.lista-movimientos {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.movimiento-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--linea-suave);
+}
+
+.mov-desc {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--tinta);
+}
+
+.mov-detalle {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--tinta-tenue);
+    margin-top: 2px;
+}
+
+.mov-acciones {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mov-cantidad {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tinta);
+    font-variant-numeric: tabular-nums;
+}
+
+.mov-borrar {
+    background: none;
+    border: none;
+    color: var(--tinta-tenue);
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.movimiento-item:hover .mov-borrar {
+    opacity: 1;
+}
+
+.mov-borrar:hover {
+    color: var(--rojo);
+}

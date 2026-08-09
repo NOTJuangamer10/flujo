@@ -1770,3 +1770,321 @@ window.addEventListener('resize', function () {
 
 // dibujo inicial
 dibujarTodo();
+
+
+
+
+
+
+// === BETA 4a: tema oscuro + multi-idioma + tab deudas + gestion de personas ===
+// (los gastos compartidos, saldar y patrones van en la 4b)
+
+// --- preferencias ---
+var FLUJO_PREFS = 'flujo_prefs';
+
+function cargarFlujoPrefs() {
+    var d = localStorage.getItem(FLUJO_PREFS);
+    if (!d) return { idioma: 'es', tema: 'claro' };
+    try { return JSON.parse(d); } catch (e) { return { idioma: 'es', tema: 'claro' }; }
+}
+
+function guardarFlujoPrefs(p) {
+    localStorage.setItem(FLUJO_PREFS, JSON.stringify(p));
+}
+
+var flujoPrefs = cargarFlujoPrefs();
+
+// --- traducciones ---
+var TR = {
+    es: {
+        resumen: 'resumen', apuntes: 'apuntes', tickets: 'tickets', deudas: 'deudas',
+        fuentesIngreso: 'fuentes de ingreso', flujoDinero: 'flujo de dinero',
+        nuevoApunte: 'nuevo apunte', libroMayor: 'libro mayor',
+        gastado: 'gastado', apuntesT: 'apuntes', media: 'media', ingresos: 'ingresos', saldo: 'saldo',
+        importe: 'importe', categoria: 'categoria', descripcion: 'descripcion', fecha: 'fecha',
+        anotar: 'anotar', anadir: 'añadir', borrar: 'borrar',
+        sinApuntes: 'sin apuntes este mes.',
+        escanearTicket: 'escanear ticket', ticketDesc: 'sube una foto de un ticket de compra y la app intentara extraer los productos y precios automaticamente.',
+        escanear: 'escanear', guardarGastos: 'guardar como gastos',
+        productosDetectados: 'productos detectados', suma: 'suma', totalTicket: 'total del ticket',
+        personas: 'personas', nuevoGastoCompartido: 'nuevo gasto compartido',
+        nombre: 'nombre', pagar: 'pagador', participantes: 'participantes',
+        metodo: 'metodo de division', igual: 'igual', partes: 'por partes', exacto: 'exacto', porcentaje: 'porcentaje',
+        movimientos: 'movimientos', saldar: 'saldar deudas',
+        sinPersonas: 'añade personas para empezar a llevar deudas.',
+        sinMovimientos: 'sin movimientos compartidos.',
+        patrones: 'patrones detectados', sinPatrones: 'aun no hay patrones detectados. registra mas gastos para que la app encuentre recurrentes.',
+        suscripciones: 'suscripciones detectadas', gastoRecurrente: 'gasto recurrente',
+        ajustes: 'ajustes', idioma: 'idioma', tema: 'tema', claro: 'claro', oscuro: 'oscuro',
+        personasDesc: 'añade las personas con las que compartes gastos (compañeros de piso, amigos, etc.)',
+        sugerenciaSaldar: 'para saldar todas las deudas con el minimo de transfers:',
+        debes: 'debes a', teDebe: 'te debe',
+        balance: 'balance', sinDeudas: 'no hay deudas pendientes. todo saldado.',
+        meses: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+        mesesLargo: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+    },
+    en: {
+        resumen: 'summary', apuntes: 'entries', tickets: 'tickets', deudas: 'debts',
+        fuentesIngreso: 'income sources', flujoDinero: 'money flow',
+        nuevoApunte: 'new entry', libroMayor: 'general ledger',
+        gastado: 'spent', apuntesT: 'entries', media: 'average', ingresos: 'income', saldo: 'balance',
+        importe: 'amount', categoria: 'category', descripcion: 'description', fecha: 'date',
+        anotar: 'log', anadir: 'add', borrar: 'delete',
+        sinApuntes: 'no entries this month.',
+        escanearTicket: 'scan receipt', ticketDesc: 'upload a photo of a receipt and the app will try to extract products and prices automatically.',
+        escanear: 'scan', guardarGastos: 'save as expenses',
+        productosDetectados: 'detected products', suma: 'sum', totalTicket: 'receipt total',
+        personas: 'people', nuevoGastoCompartido: 'new shared expense',
+        nombre: 'name', pagar: 'payer', participantes: 'participants',
+        metodo: 'split method', igual: 'equal', partes: 'by shares', exacto: 'exact', porcentaje: 'by percentage',
+        movimientos: 'movements', saldar: 'settle debts',
+        sinPersonas: 'add people to start tracking debts.',
+        sinMovimientos: 'no shared movements.',
+        patrones: 'detected patterns', sinPatrones: 'no patterns detected yet. log more expenses so the app can find recurring ones.',
+        suscripciones: 'detected subscriptions', gastoRecurrente: 'recurring expense',
+        ajustes: 'settings', idioma: 'language', tema: 'theme', claro: 'light', oscuro: 'dark',
+        personasDesc: 'add people you share expenses with (flatmates, friends, etc.)',
+        sugerenciaSaldar: 'to settle all debts with minimum transfers:',
+        debes: 'you owe to', teDebe: 'owes you',
+        balance: 'balance', sinDeudas: 'no pending debts. all settled.',
+        meses: ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'],
+        mesesLargo: ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+    }
+};
+
+function ft(key) {
+    var trad = TR[flujoPrefs.idioma] || TR.es;
+    return trad[key] || key;
+}
+
+
+// --- aplicar tema ---
+function aplicarTema() {
+    if (flujoPrefs.tema === 'oscuro') {
+        document.body.classList.add('tema-oscuro');
+    } else {
+        document.body.classList.remove('tema-oscuro');
+    }
+}
+
+
+// --- añadir tab de deudas ---
+var tabNav = document.querySelector('.tab-nav');
+var btnTabDeudas = document.createElement('button');
+btnTabDeudas.className = 'tab-btn';
+btnTabDeudas.setAttribute('data-tab', 'deudas');
+btnTabDeudas.textContent = ft('deudas');
+tabNav.appendChild(btnTabDeudas);
+
+var tabDeudas = document.createElement('div');
+tabDeudas.className = 'tab-content';
+tabDeudas.id = 'tab-deudas';
+tabDeudas.style.display = 'none';
+document.querySelector('.tabs').appendChild(tabDeudas);
+
+// reusar la logica de cambio de tab
+btnTabDeudas.addEventListener('click', function () {
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    btnTabDeudas.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(function (c) { c.style.display = 'none'; });
+    tabDeudas.style.display = 'block';
+});
+
+
+// --- almacenamiento de personas y movimientos ---
+var CLAVE_PERSONAS = 'flujo_personas';
+var CLAVE_MOVIMIENTOS = 'flujo_movimientos';
+
+function cargarPersonas() {
+    var d = localStorage.getItem(CLAVE_PERSONAS);
+    if (!d) return [];
+    try { return JSON.parse(d); } catch (e) { return []; }
+}
+
+function guardarPersonas(lista) {
+    localStorage.setItem(CLAVE_PERSONAS, JSON.stringify(lista));
+}
+
+function cargarMovimientos() {
+    var d = localStorage.getItem(CLAVE_MOVIMIENTOS);
+    if (!d) return [];
+    try { return JSON.parse(d); } catch (e) { return []; }
+}
+
+function guardarMovimientos(lista) {
+    localStorage.setItem(CLAVE_MOVIMIENTOS, JSON.stringify(lista));
+}
+
+
+// --- construir la UI de deudas ---
+tabDeudas.innerHTML =
+    '<div class="deudas-grid">' +
+
+    '<div class="deudas-col">' +
+    '<div class="deudas-titulo">' + ft('personas') + '</div>' +
+    '<p class="deudas-desc">' + ft('personasDesc') + '</p>' +
+    '<form id="form-persona" class="form-persona">' +
+    '<input type="text" id="input-persona" placeholder="' + ft('nombre') + '" required>' +
+    '<button type="submit">' + ft('anadir') + '</button>' +
+    '</form>' +
+    '<ul id="lista-personas" class="lista-personas"></ul>' +
+    '</div>' +
+
+    '<div class="deudas-col">' +
+    '<div class="deudas-titulo">' + ft('nuevoGastoCompartido') + '</div>' +
+    '<form id="form-compartido" class="form-compartido">' +
+    '<label><span>' + ft('descripcion') + '</span><input type="text" id="comp-desc" required></label>' +
+    '<label><span>' + ft('importe') + '</span><input type="number" id="comp-importe" step="0.01" min="0" required></label>' +
+    '<label><span>' + ft('pagar') + '</span><select id="comp-pagador"></select></label>' +
+    '<label><span>' + ft('participantes') + '</span><div id="comp-participantes" class="checkbox-grid"></div></label>' +
+    '<label><span>' + ft('metodo') + '</span><select id="comp-metodo"><option value="igual">' + ft('igual') + '</option><option value="partes">' + ft('partes') + '</option><option value="exacto">' + ft('exacto') + '</option><option value="porcentaje">' + ft('porcentaje') + '</option></select></label>' +
+    '<div id="comp-metodo-extra"></div>' +
+    '<button type="submit">' + ft('anadir') + '</button>' +
+    '</form>' +
+    '</div>' +
+
+    '</div>' +
+
+    '<div class="deudas-section">' +
+    '<div class="deudas-titulo">' + ft('movimientos') + '</div>' +
+    '<ul id="lista-movimientos" class="lista-movimientos"></ul>' +
+    '<p id="sin-movimientos" class="vacio">' + ft('sinMovimientos') + '</p>' +
+    '</div>' +
+
+    '<div class="deudas-section">' +
+    '<div class="deudas-titulo">' + ft('saldar') + '</div>' +
+    '<div id="saldar-sugerencias"></div>' +
+    '</div>' +
+
+    '<div class="deudas-section">' +
+    '<div class="deudas-titulo">' + ft('patrones') + '</div>' +
+    '<div id="patrones-lista"></div>' +
+    '</div>';
+
+
+// --- gestion de personas ---
+var formPersona = document.getElementById('form-persona');
+var inputPersona = document.getElementById('input-persona');
+var listaPersonas = document.getElementById('lista-personas');
+
+formPersona.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var nombre = inputPersona.value.trim();
+    if (!nombre) return;
+    var personas = cargarPersonas();
+    if (personas.indexOf(nombre) === -1) {
+        personas.push(nombre);
+        guardarPersonas(personas);
+    }
+    inputPersona.value = '';
+    mostrarPersonas();
+    actualizarSelectPagador();
+    actualizarParticipantes();
+});
+
+function borrarPersona(nombre) {
+    if (!confirm('¿Borrar a ' + nombre + '?')) return;
+    var personas = cargarPersonas();
+    guardarPersonas(personas.filter(function (p) { return p !== nombre; }));
+    mostrarPersonas();
+    actualizarSelectPagador();
+    actualizarParticipantes();
+}
+
+function mostrarPersonas() {
+    var personas = cargarPersonas();
+    listaPersonas.innerHTML = '';
+    if (personas.length === 0) {
+        listaPersonas.innerHTML = '<li class="vacio">' + ft('sinPersonas') + '</li>';
+        return;
+    }
+    // calcular balance de cada persona
+    var balances = calcularBalances();
+    personas.forEach(function (nombre) {
+        var li = document.createElement('li');
+        li.className = 'persona-item';
+        var bal = balances[nombre] || 0;
+        var balTexto = formatearEuros(Math.abs(bal));
+        var balClase = bal > 0.01 ? 'positivo' : (bal < -0.01 ? 'negativo' : 'cero');
+        var balLabel = bal > 0.01 ? ft('teDebe') : (bal < -0.01 ? ft('debes') : ft('balance'));
+        li.innerHTML =
+            '<span class="persona-nombre">' + escaparHTMLFlujo(nombre) + '</span>' +
+            '<span class="persona-balance ' + balClase + '">' + balLabel + ' ' + balTexto + '</span>' +
+            '<button class="persona-borrar" data-nombre="' + escaparHTMLFlujo(nombre) + '">×</button>';
+        listaPersonas.appendChild(li);
+    });
+    // botones de borrar
+    listaPersonas.querySelectorAll('.persona-borrar').forEach(function (btn) {
+        btn.addEventListener('click', function () { borrarPersona(this.getAttribute('data-nombre')); });
+    });
+}
+
+
+// --- panel de ajustes ---
+var btnAjustes = document.createElement('button');
+btnAjustes.id = 'btn-ajustes';
+btnAjustes.textContent = ft('ajustes');
+btnAjustes.className = 'btn-ajustes';
+document.querySelector('.cabecera').appendChild(btnAjustes);
+
+var panelAjustes = document.createElement('div');
+panelAjustes.id = 'panel-ajustes';
+panelAjustes.style.display = 'none';
+panelAjustes.innerHTML =
+    '<div class="ajustes-fila">' +
+    '<span>' + ft('idioma') + '</span>' +
+    '<div class="ajustes-toggle">' +
+    '<button data-lang="es" class="' + (flujoPrefs.idioma === 'es' ? 'active' : '') + '">ES</button>' +
+    '<button data-lang="en" class="' + (flujoPrefs.idioma === 'en' ? 'active' : '') + '">EN</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="ajustes-fila">' +
+    '<span>' + ft('tema') + '</span>' +
+    '<div class="ajustes-toggle">' +
+    '<button data-tema="claro" class="' + (flujoPrefs.tema === 'claro' ? 'active' : '') + '">' + ft('claro') + '</button>' +
+    '<button data-tema="oscuro" class="' + (flujoPrefs.tema === 'oscuro' ? 'active' : '') + '">' + ft('oscuro') + '</button>' +
+    '</div>' +
+    '</div>';
+document.body.appendChild(panelAjustes);
+
+btnAjustes.addEventListener('click', function (e) {
+    e.stopPropagation();
+    panelAjustes.style.display = panelAjustes.style.display === 'none' ? 'block' : 'none';
+});
+
+document.addEventListener('click', function (e) {
+    if (!panelAjustes.contains(e.target) && e.target !== btnAjustes) {
+        panelAjustes.style.display = 'none';
+    }
+});
+
+panelAjustes.querySelectorAll('[data-lang]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        flujoPrefs.idioma = btn.getAttribute('data-lang');
+        guardarFlujoPrefs(flujoPrefs);
+        // recargar para aplicar todos los cambios de idioma
+        location.reload();
+    });
+});
+
+panelAjustes.querySelectorAll('[data-tema]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        flujoPrefs.tema = btn.getAttribute('data-tema');
+        guardarFlujoPrefs(flujoPrefs);
+        aplicarTema();
+        panelAjustes.querySelectorAll('[data-tema]').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+    });
+});
+
+
+// --- helper ---
+function escaparHTMLFlujo(texto) {
+    return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+
+
+// --- inicializar ---
+aplicarTema();
+mostrarPersonas();
