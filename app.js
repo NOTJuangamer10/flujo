@@ -2088,3 +2088,529 @@ function escaparHTMLFlujo(texto) {
 // --- inicializar ---
 aplicarTema();
 mostrarPersonas();
+
+
+
+// === BETA 4b: gastos compartidos + movimientos + saldar deudas + patrones ===
+// (continua la 4a que ya tiene personas, tema e idioma)
+
+// --- actualizar select de pagador y checkboxes de participantes ---
+function actualizarSelectPagador() {
+    var sel = document.getElementById('comp-pagador');
+    if (!sel) return;
+    var personas = cargarPersonas();
+    sel.innerHTML = '';
+    personas.forEach(function (p) {
+        var opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        sel.appendChild(opt);
+    });
+}
+
+function actualizarParticipantes() {
+    var cont = document.getElementById('comp-participantes');
+    if (!cont) return;
+    var personas = cargarPersonas();
+    cont.innerHTML = '';
+    personas.forEach(function (p) {
+        var lab = document.createElement('label');
+        lab.className = 'check-participante';
+        lab.innerHTML = '<input type="checkbox" value="' + escaparHTMLFlujo(p) + '" checked> ' + escaparHTMLFlujo(p);
+        cont.appendChild(lab);
+    });
+}
+
+
+// --- metodo de division: mostrar campos extra ---
+var selectMetodo = document.getElementById('comp-metodo');
+var metodoExtra = document.getElementById('comp-metodo-extra');
+
+selectMetodo.addEventListener('change', function () {
+    actualizarMetodoExtra();
+});
+
+function actualizarMetodoExtra() {
+    var metodo = selectMetodo.value;
+    var personas = cargarPersonas();
+    metodoExtra.innerHTML = '';
+
+    if (metodo === 'partes') {
+        metodoExtra.innerHTML = '<div class="metodo-desc">cada persona aporta X partes. ej: 2:1:1 significa que uno paga el doble.</div>';
+        personas.forEach(function (p) {
+            metodoExtra.innerHTML += '<label class="metodo-fila"><span>' + escaparHTMLFlujo(p) + '</span><input type="number" class="input-partes" data-nombre="' + escaparHTMLFlujo(p) + '" value="1" min="0" step="1"></label>';
+        });
+    } else if (metodo === 'exacto') {
+        metodoExtra.innerHTML = '<div class="metodo-desc">cuanto paga exactamente cada uno. la suma debe ser igual al importe total.</div>';
+        personas.forEach(function (p) {
+            metodoExtra.innerHTML += '<label class="metodo-fila"><span>' + escaparHTMLFlujo(p) + '</span><input type="number" class="input-exacto" data-nombre="' + escaparHTMLFlujo(p) + '" value="0" min="0" step="0.01"></label>';
+        });
+    } else if (metodo === 'porcentaje') {
+        metodoExtra.innerHTML = '<div class="metodo-desc">que porcentaje paga cada uno. la suma debe ser 100.</div>';
+        personas.forEach(function (p) {
+            metodoExtra.innerHTML += '<label class="metodo-fila"><span>' + escaparHTMLFlujo(p) + '</span><input type="number" class="input-porcentaje" data-nombre="' + escaparHTMLFlujo(p) + '" value="' + Math.round(100 / personas.length) + '" min="0" max="100" step="1">%</label>';
+        });
+    }
+}
+
+
+// --- añadir gasto compartido ---
+var formCompartido = document.getElementById('form-compartido');
+formCompartido.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var desc = document.getElementById('comp-desc').value.trim();
+    var importe = parseFloat(document.getElementById('comp-importe').value);
+    var pagador = document.getElementById('comp-pagador').value;
+    var metodo = document.getElementById('comp-metodo').value;
+    var participantes = [];
+    document.querySelectorAll('#comp-participantes input:checked').forEach(function (cb) {
+        participantes.push(cb.value);
+    });
+
+    if (!desc || isNaN(importe) || importe <= 0 || !pagador || participantes.length === 0) {
+        alert('completa todos los campos');
+        return;
+    }
+
+    // asegurar que el pagador esta en participantes
+    if (participantes.indexOf(pagador) === -1) {
+        participantes.push(pagador);
+    }
+
+    // calcular la parte de cada uno
+    var partes = {};
+    if (metodo === 'igual') {
+        var parte = importe / participantes.length;
+        participantes.forEach(function (p) { partes[p] = parte; });
+    } else if (metodo === 'partes') {
+        var totalPartes = 0;
+        var inputsPartes = {};
+        document.querySelectorAll('.input-partes').forEach(function (inp) {
+            var nombre = inp.getAttribute('data-nombre');
+            var val = parseFloat(inp.value) || 0;
+            inputsPartes[nombre] = val;
+            if (participantes.indexOf(nombre) !== -1) totalPartes += val;
+        });
+        if (totalPartes === 0) { alert('las partes no pueden ser todas 0'); return; }
+        participantes.forEach(function (p) { partes[p] = (inputsPartes[p] || 0) / totalPartes * importe; });
+    } else if (metodo === 'exacto') {
+        var suma = 0;
+        var inputsExacto = {};
+        document.querySelectorAll('.input-exacto').forEach(function (inp) {
+            var nombre = inp.getAttribute('data-nombre');
+            var val = parseFloat(inp.value) || 0;
+            inputsExacto[nombre] = val;
+            if (participantes.indexOf(nombre) !== -1) suma += val;
+        });
+        if (Math.abs(suma - importe) > 0.01) {
+            alert('la suma de cantidades (' + suma.toFixed(2) + ') no coincide con el importe (' + importe.toFixed(2) + ')');
+            return;
+        }
+        participantes.forEach(function (p) { partes[p] = inputsExacto[p] || 0; });
+    } else if (metodo === 'porcentaje') {
+        var sumaPct = 0;
+        var inputsPct = {};
+        document.querySelectorAll('.input-porcentaje').forEach(function (inp) {
+            var nombre = inp.getAttribute('data-nombre');
+            var val = parseFloat(inp.value) || 0;
+            inputsPct[nombre] = val;
+            if (participantes.indexOf(nombre) !== -1) sumaPct += val;
+        });
+        if (Math.abs(sumaPct - 100) > 0.5) {
+            alert('los porcentajes suman ' + sumaPct + ', deben sumar 100');
+            return;
+        }
+        participantes.forEach(function (p) { partes[p] = (inputsPct[p] || 0) / 100 * importe; });
+    }
+
+    var mov = {
+        id: Date.now(),
+        descripcion: desc,
+        importe: importe,
+        pagador: pagador,
+        participantes: participantes,
+        partes: partes,
+        fecha: new Date().toISOString().slice(0, 10)
+    };
+
+    var movs = cargarMovimientos();
+    movs.push(mov);
+    guardarMovimientos(movs);
+
+    formCompartido.reset();
+    actualizarMetodoExtra();
+    mostrarMovimientos();
+    mostrarPersonas();
+    mostrarSaldar();
+});
+
+
+// --- mostrar movimientos ---
+function mostrarMovimientos() {
+    var movs = cargarMovimientos();
+    var lista = document.getElementById('lista-movimientos');
+    var vacio = document.getElementById('sin-movimientos');
+    lista.innerHTML = '';
+
+    if (movs.length === 0) {
+        vacio.style.display = 'block';
+        return;
+    }
+    vacio.style.display = 'none';
+
+    movs.slice().reverse().forEach(function (m) {
+        var li = document.createElement('li');
+        li.className = 'movimiento-item';
+        li.innerHTML =
+            '<div class="mov-info">' +
+            '<div class="mov-desc">' + escaparHTMLFlujo(m.descripcion) + '</div>' +
+            '<div class="mov-detalle">' + escaparHTMLFlujo(m.pagador) + ' pago ' + formatearEuros(m.importe) + ' · ' + m.participantes.length + ' personas</div>' +
+            '</div>' +
+            '<div class="mov-acciones">' +
+            '<span class="mov-cantidad">' + formatearEuros(m.importe) + '</span>' +
+            '<button class="mov-borrar" data-id="' + m.id + '">×</button>' +
+            '</div>';
+        lista.appendChild(li);
+    });
+
+    lista.querySelectorAll('.mov-borrar').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (!confirm('¿Borrar este movimiento?')) return;
+            var id = parseInt(this.getAttribute('data-id'), 10);
+            var movs = cargarMovimientos();
+            guardarMovimientos(movs.filter(function (m) { return m.id !== id; }));
+            mostrarMovimientos();
+            mostrarPersonas();
+            mostrarSaldar();
+        });
+    });
+}
+
+
+// --- calcular balances ---
+// positivo = la persona tiene que recibir dinero
+// negativo = la persona tiene que pagar
+function calcularBalances() {
+    var movs = cargarMovimientos();
+    var balances = {};
+    var personas = cargarPersonas();
+    personas.forEach(function (p) { balances[p] = 0; });
+
+    movs.forEach(function (m) {
+        Object.keys(m.partes).forEach(function (nombre) {
+            if (balances[nombre] === undefined) balances[nombre] = 0;
+            // el pagador pago m.importe pero le toca m.partes[pagador]
+            // los demas le deben su parte al pagador
+            if (nombre === m.pagador) {
+                // pagador pago todo, le toca partes[pagador]
+                // su balance: + (importe - su parte) = recibio de los demas
+                balances[nombre] += m.importe - m.partes[nombre];
+            } else {
+                // no pagador: debe su parte al pagador
+                balances[nombre] -= m.partes[nombre];
+            }
+        });
+    });
+
+    return balances;
+}
+
+
+// --- sugerencias para saldar con minimo de transfers ---
+function mostrarSaldar() {
+    var cont = document.getElementById('saldar-sugerencias');
+    var balances = calcularBalances();
+    var personas = Object.keys(balances).filter(function (p) { return Math.abs(balances[p]) > 0.01; });
+
+    if (personas.length === 0) {
+        cont.innerHTML = '<p class="vacio">' + ft('sinDeudas') + '</p>';
+        return;
+    }
+
+    // algoritmo greedy: ordenar por balance, los mas negativos pagan a los mas positivos
+    var deudores = personas.filter(function (p) { return balances[p] < -0.01; })
+        .sort(function (a, b) { return balances[a] - balances[b]; });
+    var acreedores = personas.filter(function (p) { return balances[p] > 0.01; })
+        .sort(function (a, b) { return balances[b] - balances[a]; });
+
+    var sugerencias = [];
+    var i = 0, j = 0;
+    var balCopy = {};
+    personas.forEach(function (p) { balCopy[p] = balances[p]; });
+
+    while (i < deudores.length && j < acreedores.length) {
+        var deuda = Math.min(-balCopy[deudores[i]], balCopy[acreedores[j]]);
+        if (deuda > 0.01) {
+            sugerencias.push({ de: deudores[i], a: acreedores[j], cantidad: deuda });
+        }
+        balCopy[deudores[i]] += deuda;
+        balCopy[acreedores[j]] -= deuda;
+        if (Math.abs(balCopy[deudores[i]]) < 0.01) i++;
+        if (Math.abs(balCopy[acreedores[j]]) < 0.01) j++;
+    }
+
+    var html = '<p class="saldar-desc">' + ft('sugerenciaSaldar') + '</p>';
+    html += '<ul class="saldar-lista">';
+    sugerencias.forEach(function (s) {
+        html += '<li class="saldar-item">' +
+            '<span class="saldar-de">' + escaparHTMLFlujo(s.de) + '</span>' +
+            '<span class="saldar-flecha">-></span>' +
+            '<span class="saldar-a">' + escaparHTMLFlujo(s.a) + '</span>' +
+            '<span class="saldar-cantidad">' + formatearEuros(s.cantidad) + '</span>' +
+            '</li>';
+    });
+    html += '</ul>';
+    cont.innerHTML = html;
+}
+
+
+// --- deteccion de patrones ---
+function mostrarPatrones() {
+    var cont = document.getElementById('patrones-lista');
+    var gastos = cargarGastos();
+    if (gastos.length < 3) {
+        cont.innerHTML = '<p class="vacio">' + ft('sinPatrones') + '</p>';
+        return;
+    }
+
+    // agrupar por descripcion exacta
+    var porDesc = {};
+    gastos.forEach(function (g) {
+        var key = (g.descripcion || '').toLowerCase().trim();
+        if (!key) return;
+        if (!porDesc[key]) porDesc[key] = [];
+        porDesc[key].push(g);
+    });
+
+    // buscar gastos recurrentes (3+ veces con misma descripcion y cantidad similar)
+    var recurrentes = [];
+    Object.keys(porDesc).forEach(function (key) {
+        var items = porDesc[key];
+        if (items.length < 3) return;
+        // calcular media y ver si las cantidades son parecidas
+        var suma = items.reduce(function (s, g) { return s + g.cantidad; }, 0);
+        var media = suma / items.length;
+        var todosParecidos = items.every(function (g) {
+            return Math.abs(g.cantidad - media) / media < 0.2;
+        });
+        if (todosParecidos) {
+            recurrentes.push({
+                descripcion: key,
+                veces: items.length,
+                media: media,
+                total: suma,
+                ultimo: items[items.length - 1].fecha
+            });
+        }
+    });
+
+    // tambien buscar suscripciones (misma cantidad exacta, repetida)
+    var porCantidad = {};
+    gastos.forEach(function (g) {
+        var key = g.cantidad.toFixed(2);
+        if (!porCantidad[key]) porCantidad[key] = [];
+        porCantidad[key].push(g);
+    });
+    var suscripciones = [];
+    Object.keys(porCantidad).forEach(function (key) {
+        var items = porCantidad[key];
+        if (items.length < 2) return;
+        // mismo importe, misma descripcion o parecida
+        var descs = {};
+        items.forEach(function (g) {
+            var d = (g.descripcion || '').toLowerCase().trim();
+            if (!descs[d]) descs[d] = 0;
+            descs[d]++;
+        });
+        var descPrincipal = Object.keys(descs).sort(function (a, b) { return descs[b] - descs[a]; })[0];
+        if (descPrincipal && descs[descPrincipal] >= 2) {
+            suscripciones.push({
+                descripcion: descPrincipal,
+                cantidad: parseFloat(key),
+                veces: descs[descPrincipal]
+            });
+        }
+    });
+
+    if (recurrentes.length === 0 && suscripciones.length === 0) {
+        cont.innerHTML = '<p class="vacio">' + ft('sinPatrones') + '</p>';
+        return;
+    }
+
+    var html = '';
+    if (suscripciones.length > 0) {
+        html += '<div class="patrones-subtitulo">' + ft('suscripciones') + '</div>';
+        html += '<ul class="patrones-lista">';
+        suscripciones.forEach(function (s) {
+            var mensual = s.cantidad;
+            html += '<li class="patron-item">' +
+                '<span class="patron-desc">' + escaparHTMLFlujo(s.descripcion) + '</span>' +
+                '<span class="patron-detalle">' + s.veces + 'x · ' + formatearEuros(s.cantidad) + '</span>' +
+                '<span class="patron-anual">~' + formatearEuros(mensual * 12) + '/año</span>' +
+                '</li>';
+        });
+        html += '</ul>';
+    }
+
+    if (recurrentes.length > 0) {
+        html += '<div class="patrones-subtitulo">' + ft('gastoRecurrente') + '</div>';
+        html += '<ul class="patrones-lista">';
+        recurrentes.sort(function (a, b) { return b.veces - a.veces; });
+        recurrentes.forEach(function (r) {
+            html += '<li class="patron-item">' +
+                '<span class="patron-desc">' + escaparHTMLFlujo(r.descripcion) + '</span>' +
+                '<span class="patron-detalle">' + r.veces + 'x · media ' + formatearEuros(r.media) + '</span>' +
+                '<span class="patron-total">total ' + formatearEuros(r.total) + '</span>' +
+                '</li>';
+        });
+        html += '</ul>';
+    }
+
+    cont.innerHTML = html;
+}
+
+
+
+// --- inicializar la 4b ---
+actualizarSelectPagador();
+actualizarParticipantes();
+actualizarMetodoExtra();
+mostrarMovimientos();
+mostrarSaldar();
+mostrarPatrones();
+
+
+// === FIX I18N COMPLETO: traducir toda la UI estatica ===
+// (no solo deudas, sino tabs, balance, secciones, formularios)
+function aplicarIdiomaCompleto() {
+    var lang = flujoPrefs.idioma;
+
+    // traducir los botones de las tabs
+    var tabs = {
+        resumen: { es: 'resumen', en: 'summary' },
+        apuntes: { es: 'apuntes', en: 'entries' },
+        tickets: { es: 'tickets', en: 'tickets' },
+        deudas: { es: 'deudas', en: 'debts' }
+    };
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        var tab = btn.getAttribute('data-tab');
+        if (tabs[tab]) btn.textContent = tabs[tab][lang];
+    });
+
+    // traducir etiquetas del balance
+    var balanceLabels = {
+        'gastado': { es: 'gastado', en: 'spent' },
+        'apuntes': { es: 'apuntes', en: 'entries' },
+        'media': { es: 'media', en: 'average' },
+        'ingresos': { es: 'ingresos', en: 'income' },
+        'saldo': { es: 'saldo', en: 'balance' }
+    };
+    document.querySelectorAll('.balance-etiqueta').forEach(function (el) {
+        var txt = el.textContent.trim().toLowerCase();
+        if (balanceLabels[txt]) el.textContent = balanceLabels[txt][lang];
+    });
+
+    // traducir titulos de secciones
+    var titulos = {
+        'fuentes de ingreso': { es: 'fuentes de ingreso', en: 'income sources' },
+        'flujo de dinero': { es: 'flujo de dinero', en: 'money flow' },
+        'nuevo apunte': { es: 'nuevo apunte', en: 'new entry' },
+        'libro mayor': { es: 'libro mayor', en: 'general ledger' },
+        'escanear ticket': { es: 'escanear ticket', en: 'scan receipt' },
+        'personas': { es: 'personas', en: 'people' },
+        'nuevo gasto compartido': { es: 'nuevo gasto compartido', en: 'new shared expense' },
+        'movimientos': { es: 'movimientos', en: 'movements' },
+        'saldar deudas': { es: 'saldar deudas', en: 'settle debts' },
+        'patrones detectados': { es: 'patrones detectados', en: 'detected patterns' }
+    };
+    document.querySelectorAll('.ingresos-titulo, .graficos-titulo, .entrada-titulo, .libro-cabecera span:first-child, .tickets-titulo, .deudas-titulo').forEach(function (el) {
+        var txt = el.textContent.trim().toLowerCase();
+        if (titulos[txt]) el.textContent = titulos[txt][lang];
+    });
+
+    // traducir etiquetas del formulario de gastos
+    var formLabels = {
+        'importe': { es: 'importe', en: 'amount' },
+        'categoria': { es: 'categoria', en: 'category' },
+        'descripcion': { es: 'descripcion', en: 'description' },
+        'fecha': { es: 'fecha', en: 'date' }
+    };
+    document.querySelectorAll('.campo-etiqueta').forEach(function (el) {
+        var txt = el.textContent.trim().toLowerCase();
+        if (formLabels[txt]) el.textContent = formLabels[txt][lang];
+    });
+
+    // traducir placeholders
+    var placeholders = {
+        'mercadona, metro, café…': { es: 'mercadona, metro, café…', en: 'groceries, metro, coffee...' }
+    };
+    document.querySelectorAll('input[placeholder]').forEach(function (el) {
+        var ph = el.placeholder;
+        if (placeholders[ph]) el.placeholder = placeholders[ph][lang];
+    });
+
+    // traducir el boton "anotar"
+    document.querySelectorAll('.btn-anotar').forEach(function (btn) {
+        btn.textContent = lang === 'en' ? 'log' : 'anotar';
+    });
+
+    // traducir "añadir" de los formularios de personas y compartido
+    document.querySelectorAll('.form-persona button[type=submit]').forEach(function (btn) {
+        btn.textContent = lang === 'en' ? 'add' : 'añadir';
+    });
+    document.querySelectorAll('.form-compartido button[type=submit]').forEach(function (btn) {
+        btn.textContent = lang === 'en' ? 'add' : 'añadir';
+    });
+
+    // traducir subtitulos de graficos
+    var subtitulos = {
+        'últimos 6 meses': { es: 'últimos 6 meses', en: 'last 6 months' },
+        'por categoría': { es: 'por categoría', en: 'by category' }
+    };
+    document.querySelectorAll('.grafico-subtitulo').forEach(function (el) {
+        var txt = el.textContent.trim().toLowerCase();
+        if (subtitulos[txt]) el.textContent = subtitulos[txt][lang];
+    });
+
+    // traducir el mensaje de vacio
+    document.querySelectorAll('.vacio').forEach(function (el) {
+        var txt = el.textContent.trim();
+        if (txt.indexOf('sin apuntes') !== -1 || txt.indexOf('no entries') !== -1) {
+            el.textContent = lang === 'en' ? 'no entries this month.' : 'sin apuntes este mes.';
+        } else if (txt.indexOf('sin movimientos') !== -1 || txt.indexOf('no shared') !== -1) {
+            el.textContent = lang === 'en' ? 'no shared movements.' : 'sin movimientos compartidos.';
+        } else if (txt.indexOf('sin deudas') !== -1 || txt.indexOf('no pending') !== -1) {
+            el.textContent = lang === 'en' ? 'no pending debts. all settled.' : 'no hay deudas pendientes. todo saldado.';
+        } else if (txt.indexOf('sin personas') !== -1 || txt.indexOf('add people') !== -1) {
+            el.textContent = lang === 'en' ? 'add people to start tracking debts.' : 'añade personas para empezar a llevar deudas.';
+        } else if (txt.indexOf('aun no hay patrones') !== -1 || txt.indexOf('no patterns') !== -1) {
+            el.textContent = lang === 'en' ? 'no patterns detected yet. log more expenses so the app can find recurring ones.' : 'aun no hay patrones detectados. registra mas gastos para que la app encuentre recurrentes.';
+        }
+    });
+
+    // traducir leyenda del grafico
+    document.querySelectorAll('#grafico-leyenda, .grafico-leyenda').forEach(function (el) {
+        el.innerHTML = '<span class="punto-max"></span> ' + (lang === 'en' ? 'highs' : 'maximas')
+            + ' &nbsp;&nbsp; <span class="punto-min"></span> ' + (lang === 'en' ? 'lows' : 'minimas');
+    });
+
+    // traducir el footer
+    document.querySelectorAll('.pie span').forEach(function (el, i) {
+        if (i === 0) el.textContent = lang === 'en' ? 'flujo · beta 4' : 'flujo · beta 4';
+        if (i === 1) el.textContent = lang === 'en' ? 'local data · no server' : 'datos locales · sin servidor';
+    });
+
+    // traducir el cabecera-sub
+    var cabSub = document.querySelector('.cabecera-sub');
+    if (cabSub) {
+        cabSub.textContent = lang === 'en' ? 'expense ledger · vol. 1' : 'libro de gastos · vol. 1';
+    }
+
+    // traducir el boton de ajustes
+    if (btnAjustes) {
+        btnAjustes.textContent = lang === 'en' ? 'settings' : 'ajustes';
+    }
+}
+
+// aplicar idioma completo al cargar
+aplicarIdiomaCompleto();
