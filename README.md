@@ -67,8 +67,25 @@ Just open `index.html` in any browser. No install, no config.
 - [x] **Beta 1** — basic expense tracking with month selector
 - [x] **Beta 2** — Sankey diagram of money flow + bar charts
 - [x] **Beta 3** — OCR ticket scanner (offline, Tesseract.js)
-- [ ] **Beta 4** — debt ledger + shared expenses + pattern detection
+- [x] **Beta 4** — debt ledger + shared expenses + pattern detection
 - [ ] **Beta 5** — FastAPI + SQLite backend for sync + PWA installable
+
+## On the time investment
+
+This project took 54 hours, which is high for a frontend-only app. The
+honest breakdown:
+
+- Sankey diagram with bezier curves on canvas: ~10h (including failed
+  attempts and asking another AI for help with the algorithm)
+- OCR ticket scanner with Tesseract.js + parser: ~8h
+- Debts system with 4 split methods + settlement algorithm: ~12h
+- Bar chart, donut chart, dark mode, full i18n: ~8h
+- Bug fixing across 4 betas (autocomplete, hoisting, timezone, OCR hang):
+  ~6h
+- General polish, rewriting, testing on mobile: ~10h
+
+The time adds up because nothing is a wrapper around a library. Every
+chart is math and canvas drawing, every feature is built from primitives.
 
 ## AI usage declaration
 
